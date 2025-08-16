@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Chinese Flashcards</title>
+  <style>
+    :root {
+      --bg: #0f172a;         
+      --card: #111827;       
+      --muted: #94a3b8;      
+      --text: #e5e7eb;       
+      --accent: #22c55e;     
+      --accent2: #60a5fa;    
+      --danger: #ef4444;     
+      --ring: #1f2937;       
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #1e293b 0, transparent 60%),
+                  radial-gradient(1000px 600px at 120% 20%, #0b1324 0, transparent 60%),
+                  var(--bg);
+      color: var(--text);
+      display: grid; place-items: start center; padding: 24px 12px 64px;
+    }
+    .app { width: min(980px, 96vw); }
+    .card { background: linear-gradient(180deg, #0b1222, #0a0f1a);
+            border: 1px solid var(--ring); border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    h1 { margin: 4px 0 12px; font-size: clamp(22px, 4vw, 32px); letter-spacing: -0.02em; }
+    p.sub { margin: 0 0 18px; color: var(--muted); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .row > * { flex: 1 0 auto; }
+    input[type="number"], input[type="text"], textarea {
+      background: #0b1020; color: var(--text); border: 1px solid #1e293b; border-radius: 10px;
+      padding: 10px 12px; outline: none; width: 100%;
+    }
+    input[type="number"]:focus, input[type="text"]:focus, textarea:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(96,165,250,.2); }
+    button {
+      background: #0b1020; color: var(--text); border: 1px solid #1e293b; border-radius: 10px;
+      padding: 10px 14px; cursor: pointer; font-weight: 600;
+    }
+    button.primary { background: linear-gradient(180deg, #1b3a74, #0c1d3a); border-color: #2a3f69; }
+    button.success { background: linear-gradient(180deg, #135c31, #0e3d23); border-color: #1e7b44; }
+    button.danger  { background: linear-gradient(180deg, #671c1c, #380e0e); border-color: #7a2424; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+    .pair small { color: var(--muted); }
+
+    .practice { margin-top: 16px; display: none; }
+    .flashcard {
+      margin: 12px 0; background: linear-gradient(180deg, #0b1220, #0a0f1a);
+      border: 1px solid #1e293b; border-radius: 18px; height: 240px;
+      display: grid; place-items: center; text-align: center; padding: 18px;
+      user-select: none; cursor: pointer; position: relative; perspective: 1000px;
+    }
+    .face { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px;
+            backface-visibility: hidden; transform-style: preserve-3d; transition: transform .45s ease; }
+    .face.front { transform: rotateY(0deg); }
+    .face.back { transform: rotateY(180deg); }
+    .flashcard.flipped .face.front { transform: rotateY(-180deg); }
+    .flashcard.flipped .face.back  { transform: rotateY(0deg); }
+    .hanzi { font-size: clamp(36px, 7vw, 64px); line-height: 1.1; }
+    .pinyin { font-size: clamp(14px, 2.4vw, 18px); color: var(--muted); margin-top: 8px; }
+    .meaning { font-size: clamp(18px, 3vw, 28px); }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+    .progress { height: 8px; background: #111827; border-radius: 999px; overflow: hidden; border: 1px solid #1f2937; }
+    .progress > div { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); width: 0%; }
+    .small { color: var(--muted); font-size: 12px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <h1>Simple Chinese Flashcards</h1>
+      <p class="sub">A simple chinese character flashcard website. Type how many cards you want, fill them in, then practice. Click the card to flip.</p>
+
+      <div id="setup" class="grid">
+        <div class="row">
+          <label class="small" for="count"># of flashcards</label>
+          <input id="count" type="number" min="1" max="200" value="10" />
+          <button id="make" class="primary">Create fields</button>
+          <button id="sample">Load sample set</button>
+        </div>
+        <div id="fields" class="grid"></div>
+        <div class="row">
+          <button id="start" class="success" disabled>Start practice ▶</button>
+          <button id="exportBtn">Export JSON</button>
+          <input id="importFile" type="file" accept="application/json" />
+        </div>
+      </div>
+
+    <button onclick="goHome()" style="position:fixed; top:10px; right:10px; padding:10px 20px; font-size:16px;">
+  Exit
+    </button>
+
+    <script>
+      function goHome() {
+     window.location.href = "chinese_characters_flashcard.html"; 
+    }
+    </script>
+
+      <div id="practice" class="practice">
+        <div class="controls">
+          <div class="row" style="gap:8px">
+            <button id="prev">◀ Prev</button>
+            <button id="flip">Flip</button>
+            <button id="next">Next ▶</button>
+            <button id="shuffle">Shuffle</button>
+            <button id="reset" class="danger">Reset</button>
+          </div>
+          <div style="min-width:160px; flex:1"></div>
+          <div style="min-width:200px; flex:1">
+            <div class="progress"><div id="bar"></div></div>
+            <div class="small" id="status">0 / 0</div>
+          </div>
+        </div>
+
+        <div id="card" class="flashcard" aria-label="flashcard" title="Click to flip">
+          <div class="face front">
+            <div>
+              <div class="hanzi" id="hanzi">你好</div>
+              <div class="pinyin" id="pinyin">nǐ hǎo</div>
+            </div>
+          </div>
+          <div class="face back">
+            <div class="meaning" id="meaning">hello</div>
+          </div>
+        </div>
+
+        <div class="row" style="justify-content:center; gap:8px">
+          <button id="know" class="success">I knew it ✔</button>
+          <button id="dont">Study again ↻</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const fields = document.getElementById('fields');
+    const makeBtn = document.getElementById('make');
+    const countInput = document.getElementById('count');
+    const startBtn = document.getElementById('start');
+    const setup = document.getElementById('setup');
+    const practice = document.getElementById('practice');
+
+    const card = document.getElementById('card');
+    const hanzi = document.getElementById('hanzi');
+    const pinyin = document.getElementById('pinyin');
+    const meaning = document.getElementById('meaning');
+
+    const prevBtn = document.getElementById('prev');
+    const nextBtn = document.getElementById('next');
+    const flipBtn = document.getElementById('flip');
+    const shuffleBtn = document.getElementById('shuffle');
+    const resetBtn = document.getElementById('reset');
+
+    const knowBtn = document.getElementById('know');
+    const dontBtn = document.getElementById('dont');
+
+    const bar = document.getElementById('bar');
+    const status = document.getElementById('status');
+
+    const sampleBtn = document.getElementById('sample');
+    const exportBtn = document.getElementById('exportBtn');
+    const importFile = document.getElementById('importFile');
+
+    let deck = [];
+    let order = [];
+    let i = 0;
+    let known = new Set();
+
+    function createFields(n) {
+      fields.innerHTML = '';
+      for (let k = 0; k < n; k++) {
+        const row = document.createElement('div');
+        row.className = 'pair';
+        row.innerHTML = `
+          <div>
+            <small>Hanzi (中文) – Card ${k+1}</small>
+            <input type="text" placeholder="比如：你好" data-key="hanzi" />
+          </div>
+          <div>
+            <small>Pinyin & Meaning (optional: pinyin | meaning)</small>
+            <input type="text" placeholder="ni3 hao3 | hello" data-key="rest" />
+          </div>
+        `;
+        fields.appendChild(row);
+      }
+      startBtn.disabled = false;
+    }
+
+    function parseFields() {
+      const rows = [...fields.querySelectorAll('.pair')];
+      const items = [];
+      for (const r of rows) {
+        const han = r.querySelector('input[data-key="hanzi"]').value.trim();
+        const rest = r.querySelector('input[data-key="rest"]').value.trim();
+        if (!han && !rest) continue;
+        let py = '', en = '';
+        if (rest.includes('|')) {
+          const [a,b] = rest.split('|');
+          py = (a||'').trim();
+          en = (b||'').trim();
+        } else {
+          en = rest;
+        }
+        items.push({ hanzi: han || '—', pinyin: py, meaning: en || '' });
+      }
+      return items;
+    }
+
+    function show(idx) {
+      const c = deck[order[idx]];
+      hanzi.textContent = c.hanzi || '';
+      pinyin.textContent = c.pinyin || '';
+      meaning.textContent = c.meaning || '';
+      card.classList.remove('flipped');
+      status.textContent = `${idx+1} / ${deck.length}`;
+      const pct = deck.length ? Math.round((known.size / deck.length) * 100) : 0;
+      bar.style.width = pct + '%';
+    }
+
+    function shuffle(array) {
+      for (let j = array.length - 1; j > 0; j--) {
+        const r = Math.floor(Math.random() * (j + 1));
+        [array[j], array[r]] = [array[r], array[j]];
+      }
+      return array;
+    }
+
+    makeBtn.addEventListener('click', () => {
+      const n = Math.max(1, Math.min(200, Number(countInput.value || 10)));
+      createFields(n);
+    });
+
+    sampleBtn.addEventListener('click', () => {
+      const sample = [
+        {hanzi:'的', pinyin:'de5', meaning:'possessive,modifying,descriptive particle | of'},
+        {hanzi:'是', pinyin:'shì', meaning:'is | are | am | yes | to be'},
+        {hanzi:'不', pinyin:'bù', meaning:'not | no'},
+        {hanzi:'我', pinyin:'wǒ', meaning:'I | me'},
+        {hanzi:'一', pinyin:'yī', meaning:'one | single'},
+        {hanzi:'有', pinyin:'yǒu', meaning:'to have'},
+        {hanzi:'大', pinyin:'dà', meaning:'big'},
+        {hanzi:'在', pinyin:'zài', meaning:'(located) at | in'},
+        {hanzi:'人', pinyin:'rén', meaning:'man'},
+        {hanzi:'了', pinyin:'le5', meaning:'(completed action marker)'}
+      ];
+      countInput.value = sample.length;
+      createFields(sample.length);
+      [...fields.querySelectorAll('.pair')].forEach((r, idx) => {
+        r.querySelector('input[data-key="hanzi"]').value = sample[idx].hanzi;
+        r.querySelector('input[data-key="rest"]').value = `${sample[idx].pinyin} | ${sample[idx].meaning}`;
+      });
+    });
+
+    startBtn.addEventListener('click', () => {
+      deck = parseFields();
+      if (deck.length === 0) {
+        alert('Please add at least one card.');
+        return;
+      }
+      order = shuffle([...deck.keys()]);
+      known = new Set();
+      i = 0;
+      setup.classList.add('hidden');
+      practice.style.display = 'block';
+      show(i);
+    });
+
+    prevBtn.addEventListener('click', () => {
+      i = (i - 1 + deck.length) % deck.length; show(i);
+    });
+    nextBtn.addEventListener('click', () => {
+      i = (i + 1) % deck.length; show(i);
+    });
+    flipBtn.addEventListener('click', () => card.classList.toggle('flipped'));
+    card.addEventListener('click', () => card.classList.toggle('flipped'));
+
+    shuffleBtn.addEventListener('click', () => { order = shuffle(order); i = 0; show(i); });
+    resetBtn.addEventListener('click', () => { known = new Set(); i = 0; show(i); });
+
+    knowBtn.addEventListener('click', () => { known.add(order[i]); i = (i + 1) % deck.length; show(i); });
+    dontBtn.addEventListener('click', () => { known.delete(order[i]); i = (i + 1) % deck.length; show(i); });
+
+    exportBtn.addEventListener('click', () => {
+      const items = deck.length ? deck : parseFields();
+      const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'flashcards.json'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    importFile.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!Array.isArray(data)) throw new Error('Invalid file');
+          countInput.value = data.length;
+          createFields(data.length);
+          [...fields.querySelectorAll('.pair')].forEach((r, idx) => {
+            const item = data[idx] || {hanzi:'', pinyin:'', meaning:''};
+            r.querySelector('input[data-key="hanzi"]').value = item.hanzi || '';
+            const rest = [item.pinyin || '', item.meaning || ''].filter(Boolean).join(' | ');
+            r.querySelector('input[data-key="rest"]').value = rest;
+          });
+        } catch (err) {
+          alert('Could not read JSON.');
+        }
+      };
+      reader.readAsText(file);
+    });
+
+
+    createFields(Number(countInput.value));
+  </script>
+</body>
+</html>
