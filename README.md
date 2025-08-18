@@ -1,1 +1,3 @@
 A simple flashcard website to practice the most common characters in Chinese. Each flashcard has the Chinese character, associated pinyin, and its English meaning on the other side. The website provides 10 sample Chinese characters when pressing "Load Sample Set." I have provided a JSON file consisting ~200 more Chinese Characters. To use, download the file and on the website, click "Choose File" at the bottom of the page. This will import all ~200 additional Chinese Characters as flashcards.
+
+I've split the large JSON file with ~200 words into separate JSON files with increments of 10 words - Better for practice
